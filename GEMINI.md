@@ -7,22 +7,26 @@ Jackbox-style party game. Players see a target image, race to write the shortest
 ## Locked Decisions
 
 | Area | Decision |
-|---|---|
-| Game mode v1 | Showdown only (multiplayer race, 60s timer) |
+|---|---|---|
+| Game mode v1 | Showdown only (multiplayer race, configurable timer) |
 | Modality | Image targets, FLUX schnell @ 4 steps, fixed seed per round |
 | Target source | On-demand FLUX gen per round. Host picks one or more categories at lobby creation; **each category has a single pre-defined FLUX prompt** in `data/categories.json`. Round variety comes from a fresh seed each round, not prompt mixing. |
 | Scoring | Threshold gate (CLIP ≥0.78) + char count tiebreak |
 | Tiebreak ladder | char count → token count → CLIP score → submission timestamp |
 | Length unit | Chars primary, tokens secondary (`Math.ceil(prompt.length / 4)` estimate, no real tokenizer) |
 | CLIP location | Server-side via fal endpoint (no transformers.js — bundle risk on mobile) |
-| Rounds per game | 3 default, host can extend up to 5 |
-| Lobby size | Host-configurable, capped at 8 (Pusher free tier) |
-| Auth | Anon. `playerId` minted on landing, stored in cookie. Name + DiceBear avatar editable on landing. |
+| Rounds per game | 1–5, default 3 |
+| Max players | 1–8, default 8 |
+| Prompt max length | 50–200 chars, default 200 |
+| Timer | 30–120s, default 60 |
+| Categories | animals, landmarks, food, celebrity, logos |
+| Auth | Anon. `userId` cookie + DiceBear avatar editable on landing. |
 | Persistence | Upstash Redis only, 1hr TTL, no SQL |
-| Realtime | Pusher (presence + private channels) |
+| Realtime | Pusher (presence channels, pub/sub) |
+| Role assignment | First N joiners = prompter, rest = spectator (host can swap) |
 | Disconnect grace | 30s — Pusher `member_removed` flips `connected: false`, server DNFs only if not back in 30s |
 | Voice commentary | DROPPED — spectator + share card win the hour |
-| Anti-cheese | 200-char prompt cap, 3s resubmit debounce, target prompt never sent to client |
+| Anti-cheese | Prompt max length cap, 3s resubmit debounce, target prompt never sent to client |
 | Demo first | Every decision biases toward live-on-stage moment |
 
 ## Stack
@@ -98,13 +102,14 @@ type Room = {
   hostId: string;            // playerId of current host
   status: "lobby" | "generating" | "countdown" | "playing" | "reveal" | "ended";
   players: Player[];         // inline; ordered by joinedAt
-  config: {
-    maxPlayers: number;      // host-set, capped at 8
+  settings: {
+    gameMode: "showdown";
+    maxPlayers: number;      // 1–8, default 8
     categories: string[];    // host-picked category ids from data/categories.json
-    totalRounds: number;     // default 3, max 5
-    roundDurationMs: number; // 60000
+    totalRounds: number;     // 1–5, default 3
+    roundDurationMs: number; // 30000–120000, default 60000
+    promptMaxLength: number; // 50–200, default 200
     threshold: number;       // 0.78 — qualifying CLIP score
-    maxPromptChars: number;  // 200
     disconnectGraceMs: number; // 30000
   };
   currentRound: number;      // 0 in lobby, 1+ in play
@@ -114,9 +119,10 @@ type Room = {
 };
 
 type Player = {
-  id: string;                // nanoid, from cookie, stable for the session
+  userId: string;            // from httpOnly cookie, crypto.randomUUID()
   name: string;
   avatarSeed: string;        // DiceBear seed
+  role: "prompter" | "spectator";
   ready: boolean;
   joinedAt: number;          // host succession order
   connected: boolean;        // Pusher presence-driven
@@ -199,13 +205,13 @@ Round state machine in Redis: `lobby → generating → countdown(3) → playing
 
 ## Conventions
 
-- `playerId` is the unit of identity. Minted on landing, stored in an httpOnly cookie, never trusted blindly — every request validates it against the room's `players[]`.
+- `userId` is the unit of identity. Minted on landing, stored in an httpOnly cookie, never trusted blindly — every request validates it against the room's `players[]`.
 - `roomCode` travels in the request body (not the URL or cookie) so a single player can spectate one room while playing in another tab.
 - 4-letter room codes via nanoid custom alphabet, no profanity, no `0/O 1/I`.
 - zod schemas on every API input.
 - 1h TTL on every Redis key.
 - `tokens = Math.ceil(prompt.length / 4)` — no real tokenizer, only a tiebreak proxy.
-- Anti-cheese: reject `>200` chars, debounce identical resubmits within 3s.
+- Anti-cheese: reject `> promptMaxLength` chars, debounce identical resubmits within 3s.
 - Target prompt never sent to client — only image URL — until the reveal payload.
 - `Room.version` increments on every write; clients reconcile on gap.
 - Pre-warm fal: dummy generation request fires when lobby mounts (mask cold start).
