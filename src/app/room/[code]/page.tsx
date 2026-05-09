@@ -12,6 +12,7 @@ import {
   leaveRoom,
   readyRoom,
   seedUser,
+  startRoom,
   updateRoomSettings,
 } from "@/lib/api";
 import { getPusher } from "@/lib/pusher-client";
@@ -357,15 +358,9 @@ function RoomLobby({ code }: RoomLobbyProps) {
 
   const handleStart = async () => {
     if (!canStart) return;
-    const [postErr] = await tryCatch(
-      fetch(`/api/v1/rooms/${code}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "start" }),
-      })
-    );
-    if (postErr) {
-      console.error("Start failed:", postErr);
+    const [err] = await tryCatch(startRoom(code));
+    if (err) {
+      console.error("Start failed:", err);
       return;
     }
     const [fetchErr] = await tryCatch(refetchRoom());
