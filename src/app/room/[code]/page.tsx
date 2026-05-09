@@ -331,6 +331,11 @@ function RoomLobby({ code }: RoomLobbyProps) {
   const canStart = isHost && allReady && players.length >= 2;
   const roomFull = players.length >= settings.maxPlayers;
 
+  const selectedCategory = CATEGORIES.find((c) => c.id === settings.category);
+  const selectedDifficulty = DIFFICULTIES.find(
+    (d) => d.id === settings.difficulty
+  );
+
   const copy = async (text: string, setter: (v: boolean) => void): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -507,6 +512,7 @@ function RoomLobby({ code }: RoomLobbyProps) {
         </div>
 
         {/* Settings */}
+        {isHost ? (
         <div className="mb-6 rounded-3xl border-[3px] border-[#0A0A0A] bg-white p-6 shadow-chunky-lg">
           <div className="mb-5 flex items-baseline justify-between">
             <h2 className="font-heading text-2xl font-bold uppercase tracking-wide">
@@ -516,11 +522,6 @@ function RoomLobby({ code }: RoomLobbyProps) {
               <span className="rounded-full border-[3px] border-[#0A0A0A] bg-[#22C55E] px-2 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide">
                 Showdown
               </span>
-              {!isHost && (
-                <span className="rounded-full border-[3px] border-[#0A0A0A] bg-[#FFF8E7] px-2 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide">
-                  Host controls
-                </span>
-              )}
             </div>
           </div>
 
@@ -687,6 +688,79 @@ function RoomLobby({ code }: RoomLobbyProps) {
             </div>
           </fieldset>
         </div>
+        ) : (
+        <div className="mb-6 rounded-3xl border-[3px] border-[#0A0A0A] bg-white p-6 shadow-chunky-lg">
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="font-heading text-2xl font-bold uppercase tracking-wide">
+              Round Settings
+            </h2>
+            <span className="rounded-full border-[3px] border-[#0A0A0A] bg-[#22C55E] px-2 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide">
+              Showdown
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div
+              className="col-span-2 rounded-2xl border-[3px] border-[#0A0A0A] p-3 shadow-chunky-sm"
+              style={{ backgroundColor: selectedCategory?.color ?? "#FFF8E7" }}
+            >
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                Category
+              </div>
+              <div className="mt-1 font-heading text-lg font-bold">
+                <span aria-hidden="true">{selectedCategory?.emoji} </span>
+                {selectedCategory?.label ?? settings.category}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border-[3px] border-[#0A0A0A] bg-[#38BDF8] p-3 shadow-chunky-sm">
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                Rounds
+              </div>
+              <div className="mt-1 font-heading text-2xl font-bold">
+                {settings.rounds}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border-[3px] border-[#0A0A0A] bg-[#FACC15] p-3 shadow-chunky-sm">
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                Round timer
+              </div>
+              <div className="mt-1 font-heading text-2xl font-bold">
+                {settings.timer}s
+              </div>
+            </div>
+
+            <div className="rounded-2xl border-[3px] border-[#0A0A0A] bg-[#F472B6] p-3 shadow-chunky-sm">
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                Prompt cap
+              </div>
+              <div className="mt-1 font-heading text-2xl font-bold">
+                {settings.promptMaxLength}
+              </div>
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                chars
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl border-[3px] border-[#0A0A0A] p-3 shadow-chunky-sm"
+              style={{ backgroundColor: selectedDifficulty?.color ?? "#FFF8E7" }}
+            >
+              <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]/60">
+                Difficulty
+              </div>
+              <div className="mt-1 font-heading text-lg font-bold uppercase tracking-wide">
+                {selectedDifficulty?.label ?? settings.difficulty}
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-center font-heading text-xs text-[#0A0A0A]/50">
+            host picks the round settings
+          </p>
+        </div>
+        )}
 
         {/* Players */}
         <div className="mb-6 rounded-3xl border-[3px] border-[#0A0A0A] bg-white p-6 shadow-chunky-lg">
