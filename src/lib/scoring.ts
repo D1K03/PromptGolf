@@ -29,15 +29,6 @@ type PickableAttempt = {
 
 type ScorableVote = {
   targetId: string
-  value: "bad" | "ok" | "good" | "excellent"
-}
-
-// Vote points received per vote. Spec: 4 excellents = 40 pts.
-export const VOTE_POINTS: Record<ScorableVote["value"], number> = {
-  bad: 0,
-  ok: 3,
-  good: 6,
-  excellent: 10,
 }
 
 // Resolve each player's "final" attempt for the round.
@@ -69,10 +60,10 @@ export function selectFinalAttempts<T extends PickableAttempt>(
   return finals
 }
 
-// Award per-round vote points into the cumulative scores map.
-// `finalAttempts` is currently unused for scoring but retained in the signature
-// so callers can pass it without rewiring; it lets us reintroduce a CLIP
-// component later without changing the call sites if the team changes their mind.
+// Award per-round vote counts into the cumulative scores map.
+// Each player has exactly one vote per round; each vote = 1 point to that target.
+// `finalAttempts` is unused for scoring but retained in the signature so callers
+// don't need to rewire if the scoring rule grows back later.
 // Pure: returns a new object.
 export function awardRoundScores<A extends { userId: string }, V extends ScorableVote>(
   currentScores: Record<string, number>,
@@ -81,7 +72,7 @@ export function awardRoundScores<A extends { userId: string }, V extends Scorabl
 ): Record<string, number> {
   const next = { ...currentScores }
   for (const v of votes) {
-    next[v.targetId] = (next[v.targetId] ?? 0) + VOTE_POINTS[v.value]
+    next[v.targetId] = (next[v.targetId] ?? 0) + 1
   }
   return next
 }

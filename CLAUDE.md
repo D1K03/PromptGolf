@@ -2,7 +2,7 @@
 
 # PromptGolf
 
-Jackbox-style party game. Players see a target image, race to write prompts that recreate it via FLUX schnell, then pick their best attempt to submit. Each round players vote on each others' final attempts (bad/ok/good/excellent). Round score = vote points received; cumulative highest score wins. The target image serves as a shared anchor for voters — there's no algorithmic scoring against it. 24hr hackathon, team of 3, demo-first.
+Jackbox-style party game. Players see a target image, race to write prompts that recreate it via FLUX schnell, then pick their best attempt to submit. Each round, voting screen shows the target alongside every player's pick; each voter casts ONE vote for the image (not their own) they think comes closest. Round score = number of votes received; cumulative highest score wins. The target is a shared anchor for voters — there's no algorithmic scoring against it. 24hr hackathon, team of 3, demo-first.
 
 ## Locked Decisions
 
@@ -10,7 +10,7 @@ Jackbox-style party game. Players see a target image, race to write prompts that
 |---|---|
 | Game mode v1 | Showdown only (multiplayer race, configurable timer) |
 | Modality | Image targets, FLUX schnell @ 4 steps, fixed seed per round |
-| Scoring | Vote-only per round, cumulative across rounds, highest total wins. Each vote received → bad=0, ok=3, good=6, excellent=10 pts. Spec example: 4 excellents from voters = 40 pts. CLIP scoring was investigated and dropped 2026-05-09 — target image is now a shared anchor for voters, not an algorithmic reference. |
+| Scoring | Single-vote per voter, cumulative across rounds, highest total wins. Each player has ONE vote per round for the image (not their own) they think is closest to the target. Each vote = 1 point. With 8 players, per-round max ≈ 7 (everyone except the recipient votes for them). CLIP scoring was investigated and dropped 2026-05-09 — target image is now a shared anchor for voters, not an algorithmic reference. |
 | Tiebreak ladder | Cumulative score → char count → token count → submission timestamp. Used only when totals literally tie (`tiebreak()` in `lib/scoring.ts`). |
 | Attempts per round | Host-configurable 1–5, default 3. Players submit multiple, then **pick** which one is their "final" submission shown to voters. |
 | Picks | Player-driven before voting starts. Fallback if no pick: last-submitted attempt (most recent `submittedAt`). |
@@ -81,7 +81,7 @@ src/
     fal.ts            # FLUX gen wrapper (target image + per-submission candidate gen)
     rooms.ts          # room state CRUD
     targets.ts        # category lookup → FLUX prompt + seed picker
-    scoring.ts        # tiebreak, VOTE_POINTS, selectFinalAttempts, awardRoundScores (vote-only)
+    scoring.ts        # tiebreak, selectFinalAttempts, awardRoundScores (single-vote tally)
     session.ts        # cookie-based playerId mint + read
     devBot.ts         # fake player for testing
   components/
@@ -162,12 +162,9 @@ type Attempt = {
   submittedAt: number;
 };
 
-type VoteValue = "bad" | "ok" | "good" | "excellent";
-
 type Vote = {
-  voterId: string;
-  targetId: string;
-  value: VoteValue;
+  voterId: string;     // each voter has exactly one Vote per round (upserted)
+  targetId: string;    // the player they're voting for
   submittedAt: number;
 };
 ```
@@ -272,8 +269,8 @@ This means the lobby roster updates itself — no custom join/leave events neede
 4. **Ready up.** Non-host players `POST { action: "ready" }` (toggleable via `unready`). Host doesn't ready themselves. Server fires `player-ready` over Pusher; clients refetch.
 5. **Start.** Host fires `POST { action: "start" }` → validations (host, ≥1 non-host, all non-host ready) → server runs the **keystone composition** (status flips `lobby → generating`, broadcasts `round-generating`, then runs `getCategoryPrompt → falGenerate`, caches `targetImageUrl` + `targetPrompt` (server-only) on the room, flips `generating → playing`, stamps `phaseEndsAt = now + settings.timer * 1000`, broadcasts `round-starting` with `{targetImageUrl, category, phaseEndsAt}`). Total wall time ≈ 1s warm.
 6. **Playing phase** (timer-bounded). Players submit prompts via `POST /api/v1/generate { roomCode, prompt }`. Each submission is FLUX'd with the round's `seed` (same latent space as target), persisted as an `Attempt` (with placeholder `similarity: 0, qualified: false`), broadcast as `attempt-submitted`. Per-player cap: `settings.attemptsPerRound`. Per-player debounce: 3s atomic Redis NX-EX. Players also `POST { action: "pick", attemptId }` to lock in which attempt is shown to voters (changeable any time during playing; if no pick, server falls back to last-submitted).
-7. **Voting phase** (20s). When the playing-phase countdown hits zero, any client fires `POST { action: "advance" }`. Server validates `Date.now() >= phaseEndsAt`, flips to `voting`, stamps a new `phaseEndsAt`, broadcasts `voting-starting`. Clients fetch `GET /api/v1/rooms/[code]/round/[n]` to populate the carousel of every other player's final attempt. Each voter `POST /api/v1/vote { roomCode, targetUserId, value }` (bad/ok/good/excellent) — one vote per target per round, anti-self-vote. Server broadcasts `vote-submitted { voterId }` (values stay private until reveal).
-8. **Reveal phase** (15s). `advance` again → server reads attempts + votes from Redis → `selectFinalAttempts(attempts, room.picks)` → `awardRoundScores(room.scores, finals, votes)` (vote points only) → flips to `reveal` → broadcasts `reveal-starting` with `{targetPrompt, scores, phaseEndsAt}`. UI shows target prompt, per-player finals, vote breakdown, leaderboard.
+7. **Voting phase** (20s). When the playing-phase countdown hits zero, any client fires `POST { action: "advance" }`. Server validates `Date.now() >= phaseEndsAt`, flips to `voting`, stamps a new `phaseEndsAt`, broadcasts `voting-starting`. Clients fetch `GET /api/v1/rooms/[code]/round/[n]` to populate the voting screen — the target image alongside every player's pick. Each voter `POST /api/v1/vote { roomCode, targetUserId }` to vote for the image they think is closest. Anti-self-vote. Each voter has exactly ONE vote per round; voting again upserts (last vote wins). Server broadcasts `vote-submitted { voterId }` (target stays private until reveal).
+8. **Reveal phase** (15s). `advance` again → server reads attempts + votes from Redis → `selectFinalAttempts(attempts, room.picks)` → `awardRoundScores(room.scores, finals, votes)` (each vote = 1 point) → flips to `reveal` → broadcasts `reveal-starting` with `{targetPrompt, scores, phaseEndsAt}`. UI shows target prompt, per-player finals, who-voted-for-whom, leaderboard.
 9. **Next round or end.** `advance` from `reveal`: if `currentRound >= settings.rounds` → status `ended`, broadcast `game-ended` with final scores. Else → `generateRoundTarget` runs again (FLUX + CLIP for round N+1's target), loop back to step 6.
 
 ### State machine
