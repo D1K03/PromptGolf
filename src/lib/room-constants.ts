@@ -13,6 +13,8 @@ export const TIMER_STEP = 10;
 export const MIN_MEMORIZE = 5;
 export const MAX_MEMORIZE = 30;
 export const MEMORIZE_STEP = 5;
+export const MIN_ATTEMPTS = 1;
+export const MAX_ATTEMPTS = 5;
 export const PROMPT_LEN_OPTIONS = [50, 100, 150, 200] as const;
 
 export interface CategoryMeta {

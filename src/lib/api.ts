@@ -1,4 +1,4 @@
-import type { RoomSettings, RoomState } from "./types";
+import type { Attempt, RoomSettings, RoomState } from "./types";
 
 export interface SeedResponse {
   user_id: string;
@@ -102,6 +102,24 @@ export async function readyRoom(
     body: JSON.stringify({ action: ready ? "ready" : "unready" }),
   });
   return asJson<{ room: RoomState }>(res);
+}
+
+export interface SubmitPromptResponse {
+  attempt: Attempt;
+  attemptsRemaining: number;
+}
+
+export async function submitPrompt(
+  roomCode: string,
+  prompt: string
+): Promise<SubmitPromptResponse> {
+  const res = await fetch(`/api/v1/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomCode, prompt }),
+  });
+  return asJson<SubmitPromptResponse>(res);
 }
 
 export async function startRoom(code: string): Promise<{ room: RoomState }> {
