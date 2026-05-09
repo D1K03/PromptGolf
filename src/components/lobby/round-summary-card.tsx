@@ -76,8 +76,20 @@ export function RoundSummaryCard({ settings }: RoundSummaryCardProps) {
           </div>
         </div>
 
+        <div className="rounded-2xl border-[3px] border-ink bg-[#bbf7d0] p-3 shadow-chunky-sm">
+          <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
+            Attempts
+          </div>
+          <div className="mt-1 font-heading text-2xl font-bold">
+            {settings.attemptsPerRound}
+          </div>
+          <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
+            per round
+          </div>
+        </div>
+
         <div
-          className="col-span-2 rounded-2xl border-[3px] border-ink p-3 shadow-chunky-sm"
+          className="col-span-2 sm:col-span-4 rounded-2xl border-[3px] border-ink p-3 shadow-chunky-sm"
           style={{ backgroundColor: difficulty?.color ?? "#FFF8E7" }}
         >
           <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">

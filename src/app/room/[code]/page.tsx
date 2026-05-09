@@ -3,7 +3,7 @@
 import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Channel } from "pusher-js";
-import type { Player, RoomSettings, RoomState } from "@/lib/types";
+import type { Attempt, Player, RoomSettings, RoomState } from "@/lib/types";
 import { tryCatch } from "@/lib/result";
 import {
   ApiError,
@@ -13,6 +13,7 @@ import {
   readyRoom,
   seedUser,
   startRoom,
+  submitPrompt,
   updateRoomSettings,
 } from "@/lib/api";
 import { getPusher } from "@/lib/pusher-client";
@@ -61,6 +62,10 @@ function RoomLobby({ code }: { code: string }) {
   const [joinError, setJoinError] = useState<string | null>(null);
 
   const [localSettings, setLocalSettings] = useState<RoomSettings | null>(null);
+
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [submitBusy, setSubmitBusy] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isHost = useMemo(
     () => Boolean(roomState && userId && roomState.hostId === userId),
@@ -151,6 +156,13 @@ function RoomLobby({ code }: { code: string }) {
     channel.bind("player-ready", onChange);
     channel.bind("settings-updated", onChange);
     channel.bind("round-starting", onChange);
+    channel.bind("round-generating", onChange);
+    channel.bind("round-failed", onChange);
+    channel.bind("attempt-submitted", (data: Attempt) => {
+      setAttempts((prev) =>
+        prev.some((a) => a.id === data.id) ? prev : [...prev, data]
+      );
+    });
 
     return () => {
       const ch = channelRef.current;
@@ -161,6 +173,12 @@ function RoomLobby({ code }: { code: string }) {
       }
     };
   }, [phase, code, refetchRoom]);
+
+  // Reset round-local state when the round number changes.
+  useEffect(() => {
+    setAttempts([]);
+    setSubmitError(null);
+  }, [roomState?.currentRound]);
 
   // Non-host: keep local settings mirrored from server.
   useEffect(() => {
@@ -232,6 +250,24 @@ function RoomLobby({ code }: { code: string }) {
     setLocalSettings(data.room.settings);
     setJoinBusy(false);
     setPhase("ready");
+  };
+
+  const handleSubmitPrompt = async (promptText: string): Promise<boolean> => {
+    if (submitBusy) return false;
+    setSubmitError(null);
+    setSubmitBusy(true);
+    const [err, data] = await tryCatch(submitPrompt(code, promptText));
+    setSubmitBusy(false);
+    if (err) {
+      setSubmitError(
+        err instanceof ApiError ? err.message || `Failed (${err.status})` : "Network error"
+      );
+      return false;
+    }
+    setAttempts((prev) =>
+      prev.some((a) => a.id === data.attempt.id) ? prev : [...prev, data.attempt]
+    );
+    return true;
   };
 
   const handleReadyToggle = async () => {
@@ -323,6 +359,11 @@ function RoomLobby({ code }: { code: string }) {
         code={code}
         roomState={roomState}
         userId={userId}
+        attempts={attempts}
+        submitBusy={submitBusy}
+        submitError={submitError}
+        onSubmit={handleSubmitPrompt}
+        onClearError={() => setSubmitError(null)}
         onLeave={handleLeave}
       />
     );
