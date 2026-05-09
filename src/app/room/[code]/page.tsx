@@ -187,8 +187,8 @@ function RoomLobby({ code }: { code: string }) {
 
   // Page-level auto-advance. When the server-stamped phase deadline elapses,
   // any client can fire `advance` — the server gates on phaseEndsAt so a
-  // tiny race between clients is harmless (the loser gets a 409 we ignore).
-  // The ref ensures we fire at most once per deadline.
+  // tiny race between clients is harmless (later one gets a 409 and we
+  // ignore it). The ref ensures we fire at most once per deadline.
   const advancedForRef = useRef<number | null>(null);
   useEffect(() => {
     if (!roomState) return;
