@@ -89,6 +89,7 @@ export async function POST(
       joinedAt: Date.now(),
       connected: true,
       lastSeenAt: Date.now(),
+
     }
 
     const { room: updatedRoom, role } = await joinRoom(room, player)
