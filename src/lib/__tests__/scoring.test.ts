@@ -103,63 +103,60 @@ describe("selectFinalAttempts", () => {
 })
 
 describe("awardRoundScores", () => {
-  it("awards vote points: spec example 4 excellents = 40", () => {
+  it("awards 1 point per vote received", () => {
     const next = awardRoundScores(
       {},
       [],
       [
-        { targetId: "alice", value: "excellent" },
-        { targetId: "alice", value: "excellent" },
-        { targetId: "alice", value: "excellent" },
-        { targetId: "alice", value: "excellent" },
+        { targetId: "alice" },
+        { targetId: "alice" },
+        { targetId: "alice" },
       ]
     )
-    expect(next).toEqual({ alice: 40 })
+    expect(next).toEqual({ alice: 3 })
   })
 
-  it("vote points scale: bad/ok/good/excellent = 0/3/6/10", () => {
+  it("counts votes for multiple targets independently", () => {
     const next = awardRoundScores({}, [], [
-      { targetId: "alice", value: "bad" },
-      { targetId: "alice", value: "ok" },
-      { targetId: "alice", value: "good" },
-      { targetId: "alice", value: "excellent" },
+      { targetId: "alice" },
+      { targetId: "alice" },
+      { targetId: "bob" },
     ])
-    expect(next).toEqual({ alice: 0 + 3 + 6 + 10 })
+    expect(next).toEqual({ alice: 2, bob: 1 })
   })
 
   it("accumulates onto existing scores across rounds", () => {
     const round1 = awardRoundScores({}, [], [
-      { targetId: "alice", value: "good" }, // 6
+      { targetId: "alice" },
+      { targetId: "alice" },
     ])
     const round2 = awardRoundScores(round1, [], [
-      { targetId: "alice", value: "excellent" }, // 10
-      { targetId: "bob", value: "ok" }, // 3
+      { targetId: "alice" },
+      { targetId: "bob" },
+      { targetId: "bob" },
     ])
-    expect(round2).toEqual({ alice: 6 + 10, bob: 3 })
+    expect(round2).toEqual({ alice: 3, bob: 2 })
   })
 
   it("does not mutate the input scores", () => {
-    const before = { alice: 50 }
+    const before = { alice: 5 }
     const snapshot = { ...before }
-    awardRoundScores(before, [], [
-      { targetId: "alice", value: "excellent" },
-    ])
+    awardRoundScores(before, [], [{ targetId: "alice" }])
     expect(before).toEqual(snapshot)
   })
 
   it("votes default to empty when omitted", () => {
-    const next = awardRoundScores({ alice: 20 }, [])
-    expect(next).toEqual({ alice: 20 })
+    const next = awardRoundScores({ alice: 2 }, [])
+    expect(next).toEqual({ alice: 2 })
   })
 
   it("ignores finalAttempts (vestigial — kept in signature for forward-compat)", () => {
     const next = awardRoundScores(
       {},
-      // these would have given big CLIP points under the old scoring
       [{ userId: "alice" }, { userId: "bob" }],
-      [{ targetId: "alice", value: "excellent" }]
+      [{ targetId: "alice" }]
     )
-    expect(next).toEqual({ alice: 10 })
+    expect(next).toEqual({ alice: 1 })
     expect(next.bob).toBeUndefined()
   })
 })

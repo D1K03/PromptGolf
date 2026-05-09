@@ -28,11 +28,22 @@ export function PlayingView({
   userId,
   onLeave,
 }: PlayingViewProps) {
-  const { settings, currentRound, players, targetImageUrl, phaseEndsAt } =
-    roomState;
-  const isHost = roomState.hostId === userId;
-  const isSpectator =
-    players.find((p) => p.userId === userId)?.role === "spectator";
+  const {
+    settings,
+    currentRound,
+    players,
+    targetImageUrl,
+    hostId,
+    phaseEndsAt,
+  } = roomState;
+
+  // Identity gates. Game has started — derive once and reuse.
+  const isHost = userId === hostId;
+  const nonHostPlayers = players.filter((p) => p.userId !== hostId);
+  const meAsNonHost = nonHostPlayers.find((p) => p.userId === userId);
+  // A non-host with role !== "spectator" is a prompter (they submit prompts).
+  const isPrompter = !isHost && meAsNonHost?.role === "prompter";
+  const isSpectator = !isHost && meAsNonHost?.role === "spectator";
 
   // Server-driven countdown. Memorize and prompt are sub-phases of `playing`:
   // total = memorizeTime + timer. While remaining > timer we're memorizing;
@@ -174,9 +185,10 @@ export function PlayingView({
     [code, pickedId]
   );
 
+  // Players strip shows non-host prompters only — they're the ones submitting.
   const submittedPlayers = useMemo<Player[]>(
-    () => players.filter((p) => p.role === "prompter"),
-    [players]
+    () => nonHostPlayers.filter((p) => p.role === "prompter"),
+    [nonHostPlayers]
   );
 
   return (

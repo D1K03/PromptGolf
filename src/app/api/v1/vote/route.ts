@@ -4,14 +4,13 @@ import { z } from "zod"
 import { pusher } from "@/lib/pusher"
 import { redis } from "@/lib/redis"
 import { getRoom } from "@/lib/rooms"
-import { Vote, VoteValue } from "@/lib/types"
+import type { Vote } from "@/lib/types"
 
 const VOTE_TTL = 3600
 
 const VoteInput = z.object({
   roomCode: z.string().length(4),
   targetUserId: z.string(),
-  value: VoteValue,
 })
 
 function votesKey(code: string, round: number): string {
@@ -30,7 +29,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const { roomCode, targetUserId, value } = parsed.data
+  const { roomCode, targetUserId } = parsed.data
 
   if (targetUserId === userId) {
     return NextResponse.json({ error: "cannot vote on yourself" }, { status: 400 })
@@ -50,29 +49,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "voting is not active" }, { status: 409 })
   }
 
-  // Read existing votes; reject if voter already voted on this target this round.
+  // Each voter has exactly one vote per round. Upsert: drop any prior vote
+  // by this voter, append the new one. Lets players change their mind during
+  // the voting phase; last vote wins.
   const key = votesKey(roomCode, room.currentRound)
   const existing = ((await redis.get(key)) as Vote[] | null) ?? []
-  const already = existing.some(
-    (v) => v.voterId === userId && v.targetId === targetUserId
-  )
-  if (already) {
-    return NextResponse.json(
-      { error: "already voted on this player this round" },
-      { status: 409 }
-    )
-  }
+  const otherVotes = existing.filter((v) => v.voterId !== userId)
 
   const vote: Vote = {
     voterId: userId,
     targetId: targetUserId,
-    value,
     submittedAt: Date.now(),
   }
-  const votes = [...existing, vote]
+  const votes = [...otherVotes, vote]
   await redis.set(key, votes, { ex: VOTE_TTL })
 
-  // Broadcast existence only — values stay private until the reveal phase.
+  // Broadcast existence only — voted-for target stays private until reveal.
   await pusher.trigger(`presence-room-${roomCode}`, "vote-submitted", {
     voterId: userId,
     round: room.currentRound,

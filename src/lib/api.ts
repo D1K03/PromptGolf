@@ -1,10 +1,4 @@
-import type {
-  Attempt,
-  RoomSettings,
-  RoomState,
-  Vote,
-  VoteValue,
-} from "./types";
+import type { Attempt, RoomSettings, RoomState, Vote } from "./types";
 
 export interface SeedResponse {
   user_id: string;
@@ -187,13 +181,12 @@ export async function submitGeneration(
 export async function submitVote(
   code: string,
   targetUserId: string,
-  value: VoteValue,
 ): Promise<{ vote: Vote }> {
   const res = await fetch("/api/v1/vote", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ roomCode: code, targetUserId, value }),
+    body: JSON.stringify({ roomCode: code, targetUserId }),
   });
   return asJson<{ vote: Vote }>(res);
 }
