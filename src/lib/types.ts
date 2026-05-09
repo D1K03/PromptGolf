@@ -40,13 +40,9 @@ export const RoomStatus = z.enum([
 ])
 export type RoomStatus = z.infer<typeof RoomStatus>
 
-export const VoteValue = z.enum(["bad", "ok", "good", "excellent"])
-export type VoteValue = z.infer<typeof VoteValue>
-
 export const Vote = z.object({
   voterId: z.string(),
   targetId: z.string(),
-  value: VoteValue,
   submittedAt: z.number(),
 })
 

@@ -105,10 +105,10 @@ The full server-side round arc is in. State machine: `lobby → generating → p
 - **`POST /api/v1/rooms/[code] { action: "advance" }`** — anyone in room. Server validates `Date.now() >= phaseEndsAt` (rejects 409 with the real deadline if early). State machine: `playing → voting (20s)`, `voting → reveal (15s)` (runs `selectFinalAttempts(attempts, picks)` → `awardRoundScores(scores, finals, votes)` → broadcasts `targetPrompt` + `scores`), `reveal → next round | ended` (next round re-runs `generateRoundTarget`).
 - **`POST /api/v1/rooms/[code] { action: "pick", attemptId }`** — locks player's "final" attempt for the round. Verifies attempt belongs to caller. Changeable any time during playing. Broadcast `pick-changed { userId }` (value private).
 - **`POST /api/v1/generate { roomCode, prompt }`** — player submission. Per-round attempts cap (`settings.attemptsPerRound`) + per-player 3s debounce (atomic Redis NX-EX). Calls `falGenerate(prompt, room.seed)` only — no CLIP. Persists `Attempt` (with placeholder `similarity: 0, qualified: false`) to `room:{CODE}:attempts:{round}`. Broadcast `attempt-submitted`. Returns `{ attempt, attemptsRemaining }`.
-- **`POST /api/v1/vote { roomCode, targetUserId, value }`** — anti-self-vote, one vote per target per round. Persists `Vote` to `room:{CODE}:votes:{round}`. Broadcast `vote-submitted { voterId, round }` (value private).
+- **`POST /api/v1/vote { roomCode, targetUserId }`** — anti-self-vote. Each voter has exactly one vote per round (upserted: re-voting drops the old entry). Persists `Vote` to `room:{CODE}:votes:{round}`. Broadcast `vote-submitted { voterId, round }` (target private until reveal).
 - **`GET /api/v1/rooms/[code]/round/[n]`** — for voting carousel + reveal screen. Returns `{ finalAttempts, votes, targetImageUrl, targetPrompt? }`. `targetPrompt` only when status ∈ {reveal, ended}.
 
-**Scoring formula (in `lib/scoring.ts`):** vote-only. `VOTE_POINTS = { bad: 0, ok: 3, good: 6, excellent: 10 }`. `awardRoundScores(scores, _finals, votes)` sums vote points per `targetId` and accumulates onto `room.scores`. `selectFinalAttempts(attempts, picks)` resolves picks → fallback to last-submitted attempt.
+**Scoring formula (in `lib/scoring.ts`):** single-vote tally. Each player has one vote per round; each vote = 1 point to that target. `awardRoundScores(scores, _finals, votes)` counts votes by `targetId` and accumulates onto `room.scores`. `selectFinalAttempts(attempts, picks)` resolves picks → fallback to last-submitted attempt.
 
 **CLIP scoring was investigated, validated, and dropped** in favour of pure social voting (team call). `lib/replicate.ts` deleted; `Attempt.similarity`/`qualified` and `RoomSettings.difficulty` are vestigial fields. The Replicate calibration data and SAM-3 dead-end are documented in Stage 1 (above) for historical context.
 
@@ -124,8 +124,8 @@ The full server-side round arc is in. State machine: `lobby → generating → p
 **B — UI (this is where the rest lives):**
 - Client-side countdown to `room.phaseEndsAt`. Auto-fire `POST { action: "advance" }` when it hits 0.
 - Playing-phase UI: target image, prompt input (live char counter), submit, attempt cards with "pick this one" button, "X attempts left" badge.
-- Voting-phase UI: carousel of other players' final attempts (fetched via `GET .../round/[n]`), 4 vote buttons per target (bad/ok/good/excellent), one vote per target.
-- Reveal-phase UI: secret target prompt revealed, per-player finals + per-round vote breakdown, running cumulative leaderboard.
+- Voting-phase UI: target image displayed alongside each player's final attempt (fetched via `GET .../round/[n]`); voter clicks ONE non-self image to vote for it; voting again replaces the previous vote.
+- Reveal-phase UI: secret target prompt revealed, per-player finals + who-voted-for-whom (or just vote counts), running cumulative leaderboard.
 - Game-end UI: final scores, share card link.
 
 ---
@@ -205,7 +205,7 @@ The full server-side round arc is in. State machine: `lobby → generating → p
 |---|---|---|
 | fal latency >2s breaks per-submission pacing | HIGH | FLUX schnell 4 steps, fixed seed, loading anim masks. Pre-warm on lobby mount. |
 | Round-target gen latency stalls round start | MED | Now: 1× FLUX (~1s) only. `generating` phase still masks the wait. Lower than pre-pivot since CLIP step removed. |
-| Voting feels random with low player counts | MED | New risk from vote-only scoring. With 3 players each round caps at 2 votes × 10 = 20 pts; one excellent vs one bad swings outcomes hard. Mitigations: encourage 4+ players in demo; consider normalizing scores by voter count later. |
+| Voting feels random with low player counts | MED | Single-vote scoring caps round points at `playerCount - 1` (everyone except the target votes for them). With 3 players, max round = 2; one vote can flip outcomes. Mitigations: encourage 4+ players in demo; longer game (5 rounds) smooths variance. |
 | Category produces unrecognizable images | MED | Person C tests each category 5× during Hr 0–4. Mark `demoSafe: true` only after passing. Demo defaults to safe categories. |
 | Demo Wi-Fi flakes | HIGH | Hotspot backup. Pre-recorded video fallback. |
 | Pusher free tier cap | MED | Cap rooms to 8 players (`settings.maxPlayers`). One demo room only. |
