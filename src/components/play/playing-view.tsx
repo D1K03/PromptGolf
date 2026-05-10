@@ -15,6 +15,7 @@ import { Card } from "@/components/jklm/card";
 import { findCategory } from "@/lib/room-constants";
 import { avatarUrl } from "@/lib/avatar";
 import { usePhaseCountdown } from "./use-phase-countdown";
+import { MicButton } from "./mic-button";
 
 interface PlayingViewProps {
   code: string;
@@ -449,6 +450,29 @@ export function PlayingView({
                           animate={{ width: `${charPct}%` }}
                           transition={{ ease: "easeOut", duration: 0.2 }}
                           className={`h-full ${charBarColor}`}
+                        />
+                      </div>
+
+                      <div className="mt-3">
+                        <MicButton
+                          disabled={
+                            submitting ||
+                            timeOut ||
+                            remainingAttempts === 0
+                          }
+                          onTranscript={(text) => {
+                            setSubmitError(null);
+                            setPrompt((prev) => {
+                              const trimmed = prev.trimEnd();
+                              const joined = trimmed
+                                ? `${trimmed} ${text}`
+                                : text;
+                              return joined.slice(
+                                0,
+                                settings.promptMaxLength,
+                              );
+                            });
+                          }}
                         />
                       </div>
 

@@ -202,6 +202,31 @@ export async function getRoundDetails(
   return asJson<RoundDetailsResponse>(res);
 }
 
+export interface TranscribeResponse {
+  text: string;
+  durationMs: number;
+  languageCode: string;
+}
+
+export async function transcribeAudio(
+  audio: Blob,
+): Promise<TranscribeResponse> {
+  const fd = new FormData();
+  // Filename hint helps ElevenLabs sniff the codec; extension comes from MIME.
+  const ext = audio.type.includes("mp4")
+    ? "mp4"
+    : audio.type.includes("ogg")
+    ? "ogg"
+    : "webm";
+  fd.append("audio", audio, `recording.${ext}`);
+  const res = await fetch("/api/v1/transcribe", {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+  return asJson<TranscribeResponse>(res);
+}
+
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   gameMode: "showdown",
   rounds: 3,
