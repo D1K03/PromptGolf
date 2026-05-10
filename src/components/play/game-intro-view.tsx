@@ -5,7 +5,6 @@ import type { Player, RoomState } from "@/lib/types";
 import { Button } from "@/components/jklm/button";
 import { Card } from "@/components/jklm/card";
 import { avatarUrl } from "@/lib/avatar";
-import { findCategory } from "@/lib/room-constants";
 import { usePhaseCountdown } from "./use-phase-countdown";
 
 interface GameIntroViewProps {
@@ -19,10 +18,10 @@ const TOTAL_INTRO_SECONDS = 6;
 export function GameIntroView({ roomState, onLeave }: GameIntroViewProps) {
   const secondsLeft = usePhaseCountdown(roomState.phaseEndsAt);
   const elapsed = TOTAL_INTRO_SECONDS - secondsLeft;
-  const slide = elapsed < 2 ? 0 : elapsed < 4 ? 1 : 2;
+  // 2 slides spanning the 6s window: welcome (0–3s), countdown (3–6s).
+  const slide = elapsed < 3 ? 0 : 1;
 
-  const { settings, players } = roomState;
-  const category = findCategory(settings.category);
+  const { players } = roomState;
 
   const prompters = useMemo<Player[]>(
     () => players.filter((p) => p.role === "prompter"),
@@ -72,62 +71,6 @@ export function GameIntroView({ roomState, onLeave }: GameIntroViewProps) {
           )}
 
           {slide === 1 && (
-            <div className="py-8">
-              <p className="mb-4 font-heading text-sm font-semibold uppercase tracking-wide text-ink/60">
-                this round
-              </p>
-              <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
-                {category && (
-                  <div
-                    className="col-span-2 rounded-2xl border-[3px] border-ink p-3 shadow-chunky-sm"
-                    style={{ backgroundColor: category.color }}
-                  >
-                    <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
-                      Category
-                    </div>
-                    <div className="mt-1 font-heading text-lg font-bold">
-                      <span aria-hidden="true">{category.emoji} </span>
-                      {category.label}
-                    </div>
-                  </div>
-                )}
-                <div className="rounded-2xl border-[3px] border-ink bg-sky p-3 shadow-chunky-sm">
-                  <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
-                    Rounds
-                  </div>
-                  <div className="mt-1 font-heading text-2xl font-bold">
-                    {settings.rounds}
-                  </div>
-                </div>
-                <div className="rounded-2xl border-[3px] border-ink bg-sun p-3 shadow-chunky-sm">
-                  <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
-                    Round timer
-                  </div>
-                  <div className="mt-1 font-heading text-2xl font-bold">
-                    {settings.timer}s
-                  </div>
-                </div>
-                <div className="rounded-2xl border-[3px] border-ink bg-pink p-3 shadow-chunky-sm">
-                  <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
-                    Memorize
-                  </div>
-                  <div className="mt-1 font-heading text-2xl font-bold">
-                    {settings.memorizeTime}s
-                  </div>
-                </div>
-                <div className="rounded-2xl border-[3px] border-ink bg-[#bbf7d0] p-3 shadow-chunky-sm">
-                  <div className="font-heading text-[10px] font-bold uppercase tracking-wide text-ink/60">
-                    Attempts
-                  </div>
-                  <div className="mt-1 font-heading text-2xl font-bold">
-                    {settings.attemptsPerRound}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {slide === 2 && (
             <div className="py-10">
               <p className="font-heading text-sm font-semibold uppercase tracking-wide text-ink/60">
                 round 1 starts in
@@ -139,7 +82,7 @@ export function GameIntroView({ roomState, onLeave }: GameIntroViewProps) {
           )}
 
           <div className="mt-6 flex items-center justify-center gap-2">
-            {[0, 1, 2].map((i) => (
+            {[0, 1].map((i) => (
               <span
                 key={i}
                 aria-hidden="true"
