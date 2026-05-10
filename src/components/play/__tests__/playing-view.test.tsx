@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import type { Player, RoomState } from "@/lib/types"
+import type { Player } from "@/lib/types"
 import { MIN_PLAYERS } from "@/lib/room-constants"
 
 function deriveLobbyGates(

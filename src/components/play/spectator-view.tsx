@@ -45,6 +45,7 @@ export function SpectatorView({
   // Clamp index if the prompter list changes (someone leaves).
   useEffect(() => {
     if (selectedIdx >= prompters.length && prompters.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clamping derived index when source list shrinks
       setSelectedIdx(0);
     }
   }, [prompters.length, selectedIdx]);
@@ -88,6 +89,7 @@ export function SpectatorView({
 
   // Reset accumulated attempts on round change.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing per-round accumulator when round changes
     setAttemptsByUser({});
   }, [currentRound]);
 

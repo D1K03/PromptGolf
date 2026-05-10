@@ -10,6 +10,7 @@ export function BackgroundMusic() {
   const ref = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only; lazy init would cause hydration mismatch
     setOn(localStorage.getItem(STORAGE_KEY) === "true");
   }, []);
 
