@@ -65,12 +65,11 @@ export function PlayersCard({
                       Host
                     </span>
                   )}
-                  {p.role === "spectator" && (
+                  {p.role === "spectator" ? (
                     <span className="rounded-full border-2 border-ink bg-sky px-2 py-0.5">
-                      Spec
+                      Spectator
                     </span>
-                  )}
-                  {p.ready ? (
+                  ) : p.ready ? (
                     <span className="rounded-full border-2 border-ink bg-golf px-2 py-0.5">
                       Ready
                     </span>

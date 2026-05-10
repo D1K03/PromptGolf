@@ -34,6 +34,7 @@ export const RoomStatus = z.enum([
   "generating",
   "countdown",
   "playing",
+  "picking",
   "voting",
   "reveal",
   "ended",

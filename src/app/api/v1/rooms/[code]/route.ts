@@ -17,6 +17,7 @@ import { falGenerate } from "@/lib/fal";
 import { awardRoundScores, selectFinalAttempts } from "@/lib/scoring";
 
 // Phase durations (ms). `playing` uses room.settings.timer (host-configurable).
+const PICKING_DURATION_MS = 10_000;
 const VOTING_DURATION_MS = 10_000;
 const REVEAL_DURATION_MS = 15_000;
 
@@ -234,7 +235,21 @@ export async function POST(
     }
 
     if (room.status === "playing") {
-      // playing → voting
+      // playing → picking: 10s window for each player to choose their final
+      // attempt before the voting carousel runs.
+      room.status = "picking";
+      room.phaseEndsAt = Date.now() + PICKING_DURATION_MS;
+      await saveRoom(room);
+      await pusher.trigger(`presence-room-${code}`, "picking-starting", {
+        status: "picking",
+        round: room.currentRound,
+        phaseEndsAt: room.phaseEndsAt,
+      });
+      return NextResponse.json({ room });
+    }
+
+    if (room.status === "picking") {
+      // picking → voting
       room.status = "voting";
       room.phaseEndsAt = Date.now() + VOTING_DURATION_MS;
       await saveRoom(room);
@@ -303,9 +318,9 @@ export async function POST(
     if (!room.players.some((p) => p.userId === userId)) {
       return NextResponse.json({ error: "not in room" }, { status: 403 });
     }
-    if (room.status !== "playing") {
+    if (room.status !== "picking") {
       return NextResponse.json(
-        { error: "can only pick during playing phase" },
+        { error: "can only pick during picking phase" },
         { status: 409 },
       );
     }
