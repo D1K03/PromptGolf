@@ -5,7 +5,6 @@ import type { Attempt, Player, RoomState } from "@/lib/types";
 import {
   ApiError,
   getRoundDetails,
-  pickAttempt,
   submitGeneration,
 } from "@/lib/api";
 import { tryCatch } from "@/lib/result";
@@ -62,10 +61,8 @@ export function PlayingView({
   // parent so every round mounts a fresh component; no reset effect needed.
   const [prompt, setPrompt] = useState<string>("");
   const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [pickedId, setPickedId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [pickError, setPickError] = useState<string | null>(null);
   // userId → count for the player strip. Updated from every attempt-submitted
   // broadcast (not just the caller's). Caller's own count is also derivable
   // from `attempts.length` but this map is simpler for the strip render.
@@ -86,7 +83,6 @@ export function PlayingView({
         return;
       }
       setAttempts(data.myAttempts);
-      setPickedId(data.myPick);
       // Seed self count from initial fetch — others will be backfilled by
       // Pusher events as they happen.
       setSubmissionCounts((prev) => ({
@@ -170,20 +166,6 @@ export function PlayingView({
     [canSubmit, code, prompt]
   );
 
-  const handlePick = useCallback(
-    async (attemptId: string) => {
-      // Optimistic update; rollback on failure.
-      const prev = pickedId;
-      setPickError(null);
-      setPickedId(attemptId);
-      const [err] = await tryCatch(pickAttempt(code, attemptId));
-      if (err) {
-        setPickedId(prev);
-        setPickError(err instanceof ApiError ? err.message : "Pick failed");
-      }
-    },
-    [code, pickedId]
-  );
 
   // Players strip shows non-host prompters only — they're the ones submitting.
   const submittedPlayers = useMemo<Player[]>(
@@ -382,21 +364,16 @@ export function PlayingView({
                 Your attempts
               </h3>
               <span className="font-heading text-xs text-ink/50">
-                pick one as your final
+                pick which one to submit after the round
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {attempts.map((a) => {
-                const picked = pickedId === a.id;
                 return (
                   <div
                     key={a.id}
-                    className={`flex flex-col overflow-hidden rounded-2xl border-[3px] ${
-                      picked
-                        ? "border-golf bg-golf/10"
-                        : "border-ink bg-white"
-                    }`}
+                    className="flex flex-col overflow-hidden rounded-2xl border-[3px] border-ink bg-white"
                   >
                     <div className="aspect-square overflow-hidden border-b-[3px] border-ink bg-cream">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -410,30 +387,10 @@ export function PlayingView({
                       <p className="line-clamp-2 font-heading text-xs">
                         {a.prompt}
                       </p>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1">
-                          {a.qualified && (
-                            <span className="rounded-full border-2 border-ink bg-golf px-1.5 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide">
-                              ✓
-                            </span>
-                          )}
-                          <span
-                            className={`rounded-full border-2 border-ink px-2 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide ${
-                              a.qualified ? "bg-golf" : "bg-pink"
-                            }`}
-                          >
-                            {(a.similarity * 100).toFixed(1)}%
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant={picked ? "primary" : "secondary"}
-                          size="sm"
-                          onClick={() => handlePick(a.id)}
-                          disabled={picked}
-                        >
-                          {picked ? "✓ Picked" : "Pick"}
-                        </Button>
+                      <div className="flex items-center gap-1">
+                        <span className="rounded-full border-2 border-ink bg-white px-2 py-0.5 font-heading text-[10px] font-bold uppercase tracking-wide">
+                          {a.chars}c
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -441,14 +398,6 @@ export function PlayingView({
               })}
             </div>
 
-            {pickError && (
-              <p
-                role="alert"
-                className="mt-3 rounded-xl border-[3px] border-ink bg-pink px-3 py-2 text-center font-heading text-xs font-semibold"
-              >
-                {pickError}
-              </p>
-            )}
           </Card>
         )}
 

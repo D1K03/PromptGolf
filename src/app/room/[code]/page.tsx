@@ -34,7 +34,9 @@ import { PlayersCard } from "@/components/lobby/players-card";
 import { RoundSummaryCard } from "@/components/lobby/round-summary-card";
 import { ShareCard } from "@/components/lobby/share-card";
 import { PlayingView } from "@/components/play/playing-view";
+import { SpectatorView } from "@/components/play/spectator-view";
 import { RoundLoadingView } from "@/components/play/round-loading-view";
+import { PickingView } from "@/components/play/picking-view";
 import {
   EndedView,
   RevealView,
@@ -169,6 +171,7 @@ function RoomLobby({ code }: { code: string }) {
     channel.bind("round-starting", onChange);
     channel.bind("round-failed", onChange);
     channel.bind("attempt-submitted", onChange);
+    channel.bind("picking-starting", onChange);
     channel.bind("pick-changed", onChange);
     channel.bind("voting-starting", onChange);
     channel.bind("vote-submitted", onChange);
@@ -195,7 +198,12 @@ function RoomLobby({ code }: { code: string }) {
     if (phase !== "ready") return;
     const { status, phaseEndsAt } = roomState;
     if (phaseEndsAt == null) return;
-    if (status !== "playing" && status !== "voting" && status !== "reveal") {
+    if (
+      status !== "playing" &&
+      status !== "picking" &&
+      status !== "voting" &&
+      status !== "reveal"
+    ) {
       return;
     }
 
@@ -393,8 +401,31 @@ function RoomLobby({ code }: { code: string }) {
   }
 
   if (roomState.status === "playing" || roomState.status === "countdown") {
+    if (isSpectator) {
+      return (
+        <SpectatorView
+          key={roomState.currentRound}
+          code={code}
+          roomState={roomState}
+          userId={userId}
+          onLeave={handleLeave}
+        />
+      );
+    }
     return (
       <PlayingView
+        key={roomState.currentRound}
+        code={code}
+        roomState={roomState}
+        userId={userId}
+        onLeave={handleLeave}
+      />
+    );
+  }
+
+  if (roomState.status === "picking") {
+    return (
+      <PickingView
         key={roomState.currentRound}
         code={code}
         roomState={roomState}

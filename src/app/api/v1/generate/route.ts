@@ -4,12 +4,13 @@ import { z } from "zod";
 import { customAlphabet } from "nanoid";
 import { pusher } from "@/lib/pusher";
 import { redis } from "@/lib/redis";
-import { getRoom } from "@/lib/rooms";
+import { getRoom, saveRoom } from "@/lib/rooms";
 import { falGenerate } from "@/lib/fal";
 import type { Attempt } from "@/lib/types";
 
 const ATTEMPT_TTL = 3600;
 const DEBOUNCE_SECONDS = 3;
+const PICKING_DURATION_MS = 10_000;
 
 const nanoidShort = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12);
 
@@ -126,6 +127,30 @@ export async function POST(request: Request) {
       "attempt-submitted",
       attempt,
     );
+
+    // Early advance: if every prompter has used all their attempts, skip the
+    // remaining round-timer wait and flip straight to the picking phase.
+    const prompters = room.players.filter(
+      (p) => p.userId !== room.hostId && p.role === "prompter",
+    );
+    const everyoneMaxed =
+      prompters.length > 0 &&
+      prompters.every(
+        (p) =>
+          attempts.filter((a) => a.userId === p.userId).length >=
+          room.settings.attemptsPerRound,
+      );
+    if (everyoneMaxed && room.status === "playing") {
+      room.status = "picking";
+      room.phaseEndsAt = Date.now() + PICKING_DURATION_MS;
+      await saveRoom(room);
+      await pusher.trigger(`presence-room-${roomCode}`, "picking-starting", {
+        status: "picking",
+        round: room.currentRound,
+        phaseEndsAt: room.phaseEndsAt,
+        reason: "all-attempts-used",
+      });
+    }
 
     return NextResponse.json({
       attempt,
