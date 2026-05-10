@@ -37,6 +37,8 @@ import { PlayingView } from "@/components/play/playing-view";
 import { SpectatorView } from "@/components/play/spectator-view";
 import { RoundLoadingView } from "@/components/play/round-loading-view";
 import { PickingView } from "@/components/play/picking-view";
+import { TiebreakerIntroView } from "@/components/play/tiebreaker-intro-view";
+import { GameIntroView } from "@/components/play/game-intro-view";
 import {
   EndedView,
   RevealView,
@@ -176,6 +178,8 @@ function RoomLobby({ code }: { code: string }) {
     channel.bind("voting-starting", onChange);
     channel.bind("vote-submitted", onChange);
     channel.bind("reveal-starting", onChange);
+    channel.bind("tiebreaker-intro-starting", onChange);
+    channel.bind("game-intro-starting", onChange);
     channel.bind("game-ended", onChange);
 
     return () => {
@@ -202,7 +206,9 @@ function RoomLobby({ code }: { code: string }) {
       status !== "playing" &&
       status !== "picking" &&
       status !== "voting" &&
-      status !== "reveal"
+      status !== "reveal" &&
+      status !== "tiebreaker-intro" &&
+      status !== "game-intro"
     ) {
       return;
     }
@@ -393,6 +399,26 @@ function RoomLobby({ code }: { code: string }) {
       <main className="flex flex-1 items-center justify-center">
         <div className="font-heading text-2xl">Loading room…</div>
       </main>
+    );
+  }
+
+  if (roomState.status === "game-intro") {
+    return (
+      <GameIntroView
+        roomState={roomState}
+        userId={userId}
+        onLeave={handleLeave}
+      />
+    );
+  }
+
+  if (roomState.status === "tiebreaker-intro") {
+    return (
+      <TiebreakerIntroView
+        roomState={roomState}
+        userId={userId}
+        onLeave={handleLeave}
+      />
     );
   }
 

@@ -31,12 +31,14 @@ export type Player = z.infer<typeof Player>
 
 export const RoomStatus = z.enum([
   "lobby",
+  "game-intro",
   "generating",
   "countdown",
   "playing",
   "picking",
   "voting",
   "reveal",
+  "tiebreaker-intro",
   "ended",
 ])
 export type RoomStatus = z.infer<typeof RoomStatus>
