@@ -18,9 +18,9 @@ import { falGenerate } from "@/lib/fal";
 import { awardRoundScores, selectFinalAttempts } from "@/lib/scoring";
 
 // Phase durations (ms). `playing` uses room.settings.timer (host-configurable).
-const PICKING_DURATION_MS = 10_000;
-const VOTING_DURATION_MS = 10_000;
-const REVEAL_DURATION_MS = 15_000;
+const PICKING_DURATION_MS = 25_000;
+const VOTING_DURATION_MS = 25_000;
+const REVEAL_DURATION_MS = 20_000;
 const GAME_INTRO_DURATION_MS = 6_000;
 
 const JoinAction = z.object({
