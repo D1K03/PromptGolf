@@ -18,6 +18,7 @@ import {
   PROMPT_LEN_OPTIONS,
   TIMER_STEP,
 } from "@/lib/room-constants";
+import { useSoundEffect } from "@/components/sound-provider";
 import { Card } from "@/components/jklm/card";
 import { Stepper } from "@/components/jklm/stepper";
 
@@ -27,6 +28,7 @@ interface GameSetupCardProps {
 }
 
 export function GameSetupCard({ settings, onChange }: GameSetupCardProps) {
+  const { playBubble } = useSoundEffect();
   return (
     <Card className="mb-6">
       <div className="mb-5 flex items-baseline justify-between">
@@ -50,7 +52,7 @@ export function GameSetupCard({ settings, onChange }: GameSetupCardProps) {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => onChange("category", c.id)}
+                onClick={() => { playBubble(); onChange("category", c.id); }}
                 aria-pressed={selected}
                 className={`press inline-flex items-center gap-2 rounded-full border-[3px] border-ink px-4 py-2 font-heading text-sm font-bold uppercase tracking-wide cursor-pointer ${
                   selected ? "shadow-chunky-sm" : "bg-white opacity-70 hover:opacity-100"
@@ -179,7 +181,7 @@ export function GameSetupCard({ settings, onChange }: GameSetupCardProps) {
                 <button
                   key={p}
                   type="button"
-                  onClick={() => onChange("promptMaxLength", p)}
+                  onClick={() => { playBubble(); onChange("promptMaxLength", p); }}
                   aria-pressed={selected}
                   className={`min-w-12 rounded-xl px-3 py-2 font-heading text-base font-bold cursor-pointer ${
                     selected
@@ -207,7 +209,7 @@ export function GameSetupCard({ settings, onChange }: GameSetupCardProps) {
               <button
                 key={d.id}
                 type="button"
-                onClick={() => onChange("difficulty", d.id)}
+                onClick={() => { playBubble(); onChange("difficulty", d.id); }}
                 aria-pressed={selected}
                 className={`press rounded-2xl border-[3px] border-ink p-3 text-left transition cursor-pointer ${
                   selected ? "shadow-chunky-sm" : "bg-white opacity-70 hover:opacity-100"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fredoka, Inter } from "next/font/google";
 import "./globals.css";
 import { BackgroundMusic } from "@/components/background-music";
+import { SoundProvider } from "@/components/sound-provider";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -30,8 +31,10 @@ export default function RootLayout({
       className={`${fredoka.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#FFF8E7] text-[#0A0A0A]">
-        {children}
-        <BackgroundMusic />
+        <SoundProvider>
+          {children}
+          <BackgroundMusic />
+        </SoundProvider>
       </body>
     </html>
     

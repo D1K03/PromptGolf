@@ -537,6 +537,7 @@ async function generateRoundTarget(
 
     return NextResponse.json({ room });
   } catch (err) {
+    console.error("Round generation failed:", err);
     // Revert to lobby on FLUX failure so the host can retry.
     room.status = "lobby";
     room.targetImageUrl = null;

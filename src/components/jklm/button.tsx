@@ -1,3 +1,6 @@
+"use client";
+
+import { useSoundEffect } from "@/components/sound-provider";
 import type { ButtonHTMLAttributes } from "react";
 
 type Variant = "primary" | "secondary" | "neutral" | "info" | "danger";
@@ -35,9 +38,11 @@ export function Button({
   full = false,
   className = "",
   type = "button",
+  onClick,
   children,
   ...rest
 }: ButtonProps) {
+  const { playBubble } = useSoundEffect();
   const bg = VARIANT_BG[variant];
   const sizing = SIZE_CLASSES[size];
   const shadow = SHADOW_BY_SIZE[size];
@@ -46,6 +51,10 @@ export function Button({
     <button
       type={type}
       {...rest}
+      onClick={(e) => {
+        playBubble();
+        onClick?.(e);
+      }}
       className={`press inline-flex items-center justify-center gap-2 rounded-2xl border-[3px] border-ink font-heading font-bold uppercase tracking-wide text-ink ${bg} ${sizing} ${shadow} ${width} cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${className}`}
     >
       {children}

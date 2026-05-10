@@ -5,6 +5,7 @@ import type { Attempt, RoomState } from "@/lib/types";
 import { getRoundDetails } from "@/lib/api";
 import { tryCatch } from "@/lib/result";
 import { getPusher } from "@/lib/pusher-client";
+import { useSoundEffect } from "@/components/sound-provider";
 import { Button } from "@/components/jklm/button";
 import { Card } from "@/components/jklm/card";
 import { findCategory } from "@/lib/room-constants";
@@ -23,6 +24,7 @@ export function SpectatorView({
   userId,
   onLeave,
 }: SpectatorViewProps) {
+  const { playBubble } = useSoundEffect();
   const { settings, currentRound, players, hostId, targetImageUrl } = roomState;
   const secondsLeft = usePhaseCountdown(roomState.phaseEndsAt);
   const category = findCategory(settings.category);
@@ -96,13 +98,15 @@ export function SpectatorView({
 
   const goLeft = useCallback(() => {
     if (prompters.length === 0) return;
+    playBubble();
     setSelectedIdx((i) => (i - 1 + prompters.length) % prompters.length);
-  }, [prompters.length]);
+  }, [prompters.length, playBubble]);
 
   const goRight = useCallback(() => {
     if (prompters.length === 0) return;
+    playBubble();
     setSelectedIdx((i) => (i + 1) % prompters.length);
-  }, [prompters.length]);
+  }, [prompters.length, playBubble]);
 
   // Keyboard navigation for desktop spectators.
   useEffect(() => {
@@ -232,7 +236,7 @@ export function SpectatorView({
                     <button
                       key={p.userId}
                       type="button"
-                      onClick={() => setSelectedIdx(i)}
+                      onClick={() => { playBubble(); setSelectedIdx(i); }}
                       className={`rounded-full border-2 border-ink px-3 py-1 font-heading text-[10px] font-bold uppercase tracking-wide cursor-pointer ${
                         active ? "bg-golf" : "bg-white"
                       }`}

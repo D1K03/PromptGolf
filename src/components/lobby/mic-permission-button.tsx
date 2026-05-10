@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSoundEffect } from "@/components/sound-provider";
 
 type MicState = "unknown" | "granted" | "denied" | "requesting";
 
 export function MicPermissionButton() {
+  const { playBubble } = useSoundEffect();
   const [state, setState] = useState<MicState>("unknown");
 
   const supported =
@@ -39,6 +41,7 @@ export function MicPermissionButton() {
 
   const handleClick = async () => {
     if (state === "requesting") return;
+    playBubble();
     setState("requesting");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

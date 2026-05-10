@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Attempt, RoomState } from "@/lib/types";
 import { ApiError, getRoundDetails, pickAttempt } from "@/lib/api";
 import { tryCatch } from "@/lib/result";
+import { useSoundEffect } from "@/components/sound-provider";
 import { Button } from "@/components/jklm/button";
 import { Card } from "@/components/jklm/card";
 import { findCategory } from "@/lib/room-constants";
@@ -22,6 +23,7 @@ export function PickingView({
   userId,
   onLeave,
 }: PickingViewProps) {
+  const { playBubble } = useSoundEffect();
   const { settings, currentRound, players, hostId, targetImageUrl } = roomState;
   const secondsLeft = usePhaseCountdown(roomState.phaseEndsAt);
   const category = findCategory(settings.category);
@@ -60,6 +62,7 @@ export function PickingView({
   const handlePick = useCallback(
     async (attemptId: string) => {
       if (pickBusy) return;
+      playBubble();
       const prev = pickedId;
       setPickError(null);
       setPickBusy(true);

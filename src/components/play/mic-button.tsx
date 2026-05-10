@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { useSoundEffect } from "@/components/sound-provider";
 import {
   PUSH_TO_TALK_MAX_MS,
   usePushToTalk,
@@ -15,6 +16,7 @@ interface MicButtonProps {
 // Streams to /api/v1/transcribe via the usePushToTalk hook and pushes the
 // transcript text to onTranscript.
 export function MicButton({ onTranscript, disabled = false }: MicButtonProps) {
+  const { playBubble } = useSoundEffect();
   const reduce = useReducedMotion();
   const { status, elapsedMs, level, error, supported, start, stop, cancel } =
     usePushToTalk({ onResult: onTranscript });
@@ -31,6 +33,7 @@ export function MicButton({ onTranscript, disabled = false }: MicButtonProps) {
 
   const handleClick = () => {
     if (disabled || transcribing) return;
+    playBubble();
     if (recording) {
       stop();
     } else {
@@ -93,7 +96,7 @@ export function MicButton({ onTranscript, disabled = false }: MicButtonProps) {
               </span>
               <button
                 type="button"
-                onClick={cancel}
+                onClick={() => { playBubble(); cancel(); }}
                 className="rounded-full border-2 border-ink bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide press"
               >
                 Cancel
