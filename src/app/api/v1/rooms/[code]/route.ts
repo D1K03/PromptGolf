@@ -24,6 +24,8 @@ import {
 const PICKING_DURATION_MS = 10_000;
 const VOTING_DURATION_MS = 10_000;
 const REVEAL_DURATION_MS = 15_000;
+const TIEBREAKER_INTRO_DURATION_MS = 6_000;
+const GAME_INTRO_DURATION_MS = 6_000;
 
 const JoinAction = z.object({
   action: z.literal("join"),
@@ -220,7 +222,15 @@ export async function POST(
       );
     }
 
-    return generateRoundTarget(room, code);
+    // Lobby → game-intro: short slideshow before the first round generates.
+    room.status = "game-intro";
+    room.phaseEndsAt = Date.now() + GAME_INTRO_DURATION_MS;
+    await saveRoom(room);
+    await pusher.trigger(`presence-room-${code}`, "game-intro-starting", {
+      status: "game-intro",
+      phaseEndsAt: room.phaseEndsAt,
+    });
+    return NextResponse.json({ room });
   }
 
   if (action === "advance") {
@@ -322,12 +332,32 @@ export async function POST(
           return NextResponse.json({ room });
         }
 
-        // 2+ tied → run another tiebreaker round narrowed to those players.
+        // 2+ tied → narrow to those players and run a brief intro slideshow
+        // before generating the next round's image.
         room.tiebreakerPlayers = topTied;
-        return generateRoundTarget(room, code);
+        room.status = "tiebreaker-intro";
+        room.phaseEndsAt = Date.now() + TIEBREAKER_INTRO_DURATION_MS;
+        await saveRoom(room);
+        await pusher.trigger(`presence-room-${code}`, "tiebreaker-intro-starting", {
+          status: "tiebreaker-intro",
+          round: room.currentRound,
+          phaseEndsAt: room.phaseEndsAt,
+          tiebreakerPlayers: topTied,
+        });
+        return NextResponse.json({ room });
       }
 
       // Normal main-round progression.
+      return generateRoundTarget(room, code);
+    }
+
+    if (room.status === "tiebreaker-intro") {
+      // Intro slideshow elapsed → generate the actual tiebreaker round.
+      return generateRoundTarget(room, code);
+    }
+
+    if (room.status === "game-intro") {
+      // Pre-game slideshow elapsed → generate round 1.
       return generateRoundTarget(room, code);
     }
 

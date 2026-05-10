@@ -39,8 +39,22 @@ export async function POST(request: Request) {
   if (!room) {
     return NextResponse.json({ error: "room not found" }, { status: 404 })
   }
-  if (!room.players.some((p) => p.userId === userId)) {
+  const voter = room.players.find((p) => p.userId === userId)
+  if (!voter) {
     return NextResponse.json({ error: "not in room" }, { status: 403 })
+  }
+  // Tiebreaker rule: only original prompters who are NOT one of the still-
+  // tied contestants may vote. Spectators and tied players are excluded.
+  if (room.tiebreakerPlayers != null) {
+    if (voter.role !== "prompter" || room.tiebreakerPlayers.includes(userId)) {
+      return NextResponse.json(
+        {
+          error:
+            "tiebreaker round — only eliminated players judge the contestants",
+        },
+        { status: 403 },
+      )
+    }
   }
   if (!room.players.some((p) => p.userId === targetUserId)) {
     return NextResponse.json({ error: "target not in room" }, { status: 400 })
