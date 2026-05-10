@@ -1,3 +1,7 @@
+"use client";
+
+import { useSoundEffect } from "@/components/sound-provider";
+
 interface StepperProps {
   value: number;
   min: number;
@@ -24,8 +28,10 @@ export function Stepper({
   disabled,
   onChange,
 }: StepperProps) {
+  const { playBubble } = useSoundEffect();
   const bump = (delta: number) => {
     if (disabled) return;
+    playBubble();
     onChange(clamp(value + delta * step, min, max));
   };
 

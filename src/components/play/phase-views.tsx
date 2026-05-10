@@ -5,6 +5,7 @@ import type { Attempt, RoomState, Vote } from "@/lib/types";
 import { ApiError, getRoundDetails, restartRoom, submitVote } from "@/lib/api";
 import { tryCatch } from "@/lib/result";
 import { getPusher } from "@/lib/pusher-client";
+import { useSoundEffect } from "@/components/sound-provider";
 import { Button } from "@/components/jklm/button";
 import { Card } from "@/components/jklm/card";
 import { usePhaseCountdown } from "./use-phase-countdown";
@@ -70,6 +71,7 @@ export function VotingView({
   userId,
   onLeave,
 }: VotingPhaseProps) {
+  const { playBubble } = useSoundEffect();
   const secondsLeft = usePhaseCountdown(roomState.phaseEndsAt);
   const { currentRound, tiebreakerPlayers } = roomState;
 
@@ -136,6 +138,7 @@ export function VotingView({
   const handleVote = async (targetUserId: string) => {
     if (voteBusy) return;
     if (targetUserId === userId) return;
+    playBubble();
     setVoteError(null);
     setVoteBusy(true);
     // Optimistic: replace any prior vote by us.

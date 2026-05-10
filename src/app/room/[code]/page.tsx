@@ -26,6 +26,7 @@ import {
 } from "@/lib/api";
 import { getPusher } from "@/lib/pusher-client";
 import { randomGuestName } from "@/lib/guest-name";
+import { useSoundEffect } from "@/components/sound-provider";
 import { Button } from "@/components/jklm/button";
 import { Card } from "@/components/jklm/card";
 import { GameSetupCard } from "@/components/lobby/game-setup-card";
@@ -74,6 +75,8 @@ function RoomLobby({ code }: { code: string }) {
 
   const [readyBusy, setReadyBusy] = useState<boolean>(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [roundError, setRoundError] = useState<string | null>(null);
+  const { playBubble } = useSoundEffect();
   const [shareUrl, setShareUrl] = useState<string>("");
 
   const [joinName, setJoinName] = useState<string>("");
@@ -172,7 +175,11 @@ function RoomLobby({ code }: { code: string }) {
     channel.bind("settings-updated", onChange);
     channel.bind("round-generating", onChange);
     channel.bind("round-starting", onChange);
-    channel.bind("round-failed", onChange);
+    channel.bind("round-failed", (data: { error?: string }) => {
+      console.error("Round failed:", data.error);
+      setRoundError(data.error ?? "Round generation failed");
+      void refetchRoom();
+    });
     channel.bind("attempt-submitted", onChange);
     channel.bind("picking-starting", onChange);
     channel.bind("pick-changed", onChange);
@@ -298,6 +305,7 @@ function RoomLobby({ code }: { code: string }) {
 
   const handleJoinSubmit = async (name: string) => {
     if (joinBusy) return;
+    playBubble();
     if (!name) {
       setJoinError("Pick a name first");
       return;
@@ -324,6 +332,7 @@ function RoomLobby({ code }: { code: string }) {
 
   const handleReadyToggle = async () => {
     if (readyBusy) return;
+    playBubble();
     setReadyBusy(true);
     const next = !myReady;
     const [err, data] = await tryCatch(readyRoom(code, next));
@@ -338,7 +347,9 @@ function RoomLobby({ code }: { code: string }) {
 
   const handleStart = async () => {
     if (!canStart) return;
+    playBubble();
     setStartError(null);
+    setRoundError(null);
     const [err, data] = await tryCatch(startRoom(code));
     if (err) {
       console.error("Start failed:", err);
@@ -353,6 +364,7 @@ function RoomLobby({ code }: { code: string }) {
   };
 
   const handleLeave = async () => {
+    playBubble();
     await tryCatch(leaveRoom(code));
     router.push("/");
   };
@@ -545,12 +557,12 @@ function RoomLobby({ code }: { code: string }) {
                   : "Start Round"}
             </Button>
           )}
-          {startError && (
+          {(startError || roundError) && (
             <p
               role="alert"
               className="rounded-xl border-[3px] border-ink bg-pink px-4 py-2 text-center font-heading text-sm font-semibold"
             >
-              {startError}
+              {startError ?? roundError}
             </p>
           )}
           <MicPermissionButton />
