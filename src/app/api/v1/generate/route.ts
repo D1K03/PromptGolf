@@ -10,7 +10,7 @@ import type { Attempt } from "@/lib/types";
 
 const ATTEMPT_TTL = 3600;
 const DEBOUNCE_SECONDS = 3;
-const PICKING_DURATION_MS = 10_000;
+const PICKING_DURATION_MS = 25_000;
 
 const nanoidShort = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 12);
 
