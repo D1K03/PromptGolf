@@ -554,7 +554,7 @@ describe("spectating with multiple users", () => {
   it("spectator promotion: when host leaves and only spectators remain, the first spectator becomes host", async () => {
     const tight: RoomSettings = { ...mockSettings, maxPlayers: 1 }
     const { createRoom, joinRoom, leaveRoom } = await import("../rooms")
-    let room = await createRoom(tight, host)
+    const room = await createRoom(tight, host)
     // All subsequent joiners are spectators.
     const { room: r1 } = await joinRoom(room, buildPlayer(1))
     const { room: r2 } = await joinRoom(r1, buildPlayer(2))
@@ -574,7 +574,7 @@ describe("spectating with multiple users", () => {
     // maxPlayers=2 → host + 1 prompter slot. Third player spectates.
     const tight: RoomSettings = { ...mockSettings, maxPlayers: 2 }
     const { createRoom, joinRoom } = await import("../rooms")
-    let room = await createRoom(tight, host)
+    const room = await createRoom(tight, host)
     const { room: r1 } = await joinRoom(room, buildPlayer(1)) // prompter
     const { room: r2 } = await joinRoom(r1, buildPlayer(2)) // spectator
 

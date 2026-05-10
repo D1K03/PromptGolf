@@ -104,6 +104,7 @@ function RoomLobby({ code }: { code: string }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- window.location is browser-only; cannot lazy-init without hydration mismatch
       setShareUrl(`${window.location.origin}/room/${code}`);
     }
   }, [code]);
@@ -247,6 +248,7 @@ function RoomLobby({ code }: { code: string }) {
   useEffect(() => {
     if (!roomState) return;
     if (!isHost) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mirroring server-driven settings into local state for non-hosts; alternative would require restructuring host/non-host into separate components
       setLocalSettings(roomState.settings);
     }
   }, [roomState, isHost]);

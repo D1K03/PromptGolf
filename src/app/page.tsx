@@ -29,6 +29,7 @@ export default function Home() {
   const [busy, setBusy] = useState<boolean>(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- guest name is browser-only random; lazy init would cause hydration mismatch
     setName(randomGuestName());
     const seed = async () => {
       const [err, data] = await tryCatch(seedUser());
