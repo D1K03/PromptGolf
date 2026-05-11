@@ -133,11 +133,8 @@ export async function POST(request: Request) {
 
     // Early advance: if every prompter has used all their attempts, skip the
     // remaining round-timer wait and flip straight to the picking phase.
-    const prompters = room.players.filter(
-      (p) =>
-        p.userId !== room.hostId &&
-        p.role === "prompter",
-    );
+    // Host is a prompter too — they can submit attempts, so they count.
+    const prompters = room.players.filter((p) => p.role === "prompter");
     const everyoneMaxed =
       prompters.length > 0 &&
       prompters.every(

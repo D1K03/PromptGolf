@@ -3,10 +3,12 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { pusher } from "@/lib/pusher"
 import { redis } from "@/lib/redis"
-import { getRoom } from "@/lib/rooms"
-import type { Vote } from "@/lib/types"
+import { getRoom, saveRoom } from "@/lib/rooms"
+import { awardRoundScores, selectFinalAttempts } from "@/lib/scoring"
+import type { Attempt, Vote } from "@/lib/types"
 
 const VOTE_TTL = 3600
+const REVEAL_DURATION_MS = 20_000
 
 const VoteInput = z.object({
   roomCode: z.string().length(4),
@@ -70,6 +72,33 @@ export async function POST(request: Request) {
     voterId: userId,
     round: room.currentRound,
   })
+
+  // Early advance: if every prompter has cast a vote, skip the remaining
+  // voting-timer wait and flip straight to the reveal phase. Mirrors the
+  // playing → picking early-advance in /api/v1/generate.
+  const prompters = room.players.filter((p) => p.role === "prompter")
+  const everyoneVoted =
+    prompters.length > 0 &&
+    prompters.every((p) => votes.some((v) => v.voterId === p.userId))
+  if (everyoneVoted && room.status === "voting") {
+    const attempts =
+      ((await redis.get(`room:${roomCode}:attempts:${room.currentRound}`)) as
+        | Attempt[]
+        | null) ?? []
+    const finals = selectFinalAttempts(attempts, room.picks)
+    room.scores = awardRoundScores(room.scores, finals, votes)
+    room.status = "reveal"
+    room.phaseEndsAt = Date.now() + REVEAL_DURATION_MS
+    await saveRoom(room)
+    await pusher.trigger(`presence-room-${roomCode}`, "reveal-starting", {
+      status: "reveal",
+      round: room.currentRound,
+      phaseEndsAt: room.phaseEndsAt,
+      targetPrompt: room.targetPrompt,
+      scores: room.scores,
+      reason: "all-voted",
+    })
+  }
 
   return NextResponse.json({ vote })
 }

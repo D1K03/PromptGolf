@@ -161,8 +161,8 @@ export function PlayingView({
   );
 
   const submittedPlayers = useMemo<Player[]>(
-    () => nonHostPlayers.filter((p) => p.role === "prompter"),
-    [nonHostPlayers]
+    () => players.filter((p) => p.role === "prompter"),
+    [players]
   );
 
   return (

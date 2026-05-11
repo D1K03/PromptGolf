@@ -369,6 +369,25 @@ export async function POST(
       userId,
       round: room.currentRound,
     });
+
+    // Early advance: if every prompter has locked in a pick, skip the
+    // remaining picking-timer wait and flip straight to voting. Mirrors the
+    // playing → picking and voting → reveal early-advance behaviors.
+    const prompters = room.players.filter((p) => p.role === "prompter");
+    const everyonePicked =
+      prompters.length > 0 && prompters.every((p) => room.picks[p.userId]);
+    if (everyonePicked && room.status === "picking") {
+      room.status = "voting";
+      room.phaseEndsAt = Date.now() + VOTING_DURATION_MS;
+      await saveRoom(room);
+      await pusher.trigger(`presence-room-${code}`, "voting-starting", {
+        status: "voting",
+        round: room.currentRound,
+        phaseEndsAt: room.phaseEndsAt,
+        reason: "all-picked",
+      });
+    }
+
     return NextResponse.json({ room });
   }
 
