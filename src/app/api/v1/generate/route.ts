@@ -143,15 +143,21 @@ export async function POST(request: Request) {
           room.settings.attemptsPerRound,
       );
     if (everyoneMaxed && room.status === "playing") {
-      room.status = "picking";
-      room.phaseEndsAt = Date.now() + PICKING_DURATION_MS;
-      await saveRoom(room);
-      await pusher.trigger(`presence-room-${roomCode}`, "picking-starting", {
-        status: "picking",
-        round: room.currentRound,
-        phaseEndsAt: room.phaseEndsAt,
-        reason: "all-attempts-used",
-      });
+      // Same per-deadline lock used by the manual advance path — prevents
+      // dupes when this early-advance races a timer-driven advance.
+      const advanceLockKey = `room:${roomCode}:advance-lock:playing:${room.phaseEndsAt ?? "null"}`;
+      const locked = await redis.set(advanceLockKey, "1", { nx: true, ex: 30 });
+      if (locked === "OK") {
+        room.status = "picking";
+        room.phaseEndsAt = Date.now() + PICKING_DURATION_MS;
+        await saveRoom(room);
+        await pusher.trigger(`presence-room-${roomCode}`, "picking-starting", {
+          status: "picking",
+          round: room.currentRound,
+          phaseEndsAt: room.phaseEndsAt,
+          reason: "all-attempts-used",
+        });
+      }
     }
 
     return NextResponse.json({

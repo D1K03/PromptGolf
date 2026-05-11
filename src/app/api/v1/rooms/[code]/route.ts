@@ -250,6 +250,21 @@ export async function POST(
       );
     }
 
+    // Atomic per-deadline lock: every connected client fires `advance` when its
+    // local countdown hits zero, so without this, N requests all read the same
+    // pre-transition snapshot and each runs the transition (e.g. N FLUX calls,
+    // N broadcasts → image flash on the client). The lock key includes
+    // status + phaseEndsAt so it's unique to this specific transition; only
+    // the first request through wins, the rest 409 and the client ignores it.
+    const advanceLockKey = `room:${code}:advance-lock:${room.status}:${room.phaseEndsAt ?? "null"}`;
+    const locked = await redis.set(advanceLockKey, "1", { nx: true, ex: 30 });
+    if (locked !== "OK") {
+      return NextResponse.json(
+        { error: "advance already in progress" },
+        { status: 409 },
+      );
+    }
+
     if (room.status === "playing") {
       // playing → picking: 10s window for each player to choose their final
       // attempt before the voting carousel runs.
@@ -377,15 +392,22 @@ export async function POST(
     const everyonePicked =
       prompters.length > 0 && prompters.every((p) => room.picks[p.userId]);
     if (everyonePicked && room.status === "picking") {
-      room.status = "voting";
-      room.phaseEndsAt = Date.now() + VOTING_DURATION_MS;
-      await saveRoom(room);
-      await pusher.trigger(`presence-room-${code}`, "voting-starting", {
-        status: "voting",
-        round: room.currentRound,
-        phaseEndsAt: room.phaseEndsAt,
-        reason: "all-picked",
-      });
+      // Same per-deadline lock used by the manual advance path — prevents
+      // dupes when this early-advance races a timer-driven advance or another
+      // simultaneously-arriving final pick.
+      const advanceLockKey = `room:${code}:advance-lock:picking:${room.phaseEndsAt ?? "null"}`;
+      const locked = await redis.set(advanceLockKey, "1", { nx: true, ex: 30 });
+      if (locked === "OK") {
+        room.status = "voting";
+        room.phaseEndsAt = Date.now() + VOTING_DURATION_MS;
+        await saveRoom(room);
+        await pusher.trigger(`presence-room-${code}`, "voting-starting", {
+          status: "voting",
+          round: room.currentRound,
+          phaseEndsAt: room.phaseEndsAt,
+          reason: "all-picked",
+        });
+      }
     }
 
     return NextResponse.json({ room });

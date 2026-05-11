@@ -81,23 +81,30 @@ export async function POST(request: Request) {
     prompters.length > 0 &&
     prompters.every((p) => votes.some((v) => v.voterId === p.userId))
   if (everyoneVoted && room.status === "voting") {
-    const attempts =
-      ((await redis.get(`room:${roomCode}:attempts:${room.currentRound}`)) as
-        | Attempt[]
-        | null) ?? []
-    const finals = selectFinalAttempts(attempts, room.picks)
-    room.scores = awardRoundScores(room.scores, finals, votes)
-    room.status = "reveal"
-    room.phaseEndsAt = Date.now() + REVEAL_DURATION_MS
-    await saveRoom(room)
-    await pusher.trigger(`presence-room-${roomCode}`, "reveal-starting", {
-      status: "reveal",
-      round: room.currentRound,
-      phaseEndsAt: room.phaseEndsAt,
-      targetPrompt: room.targetPrompt,
-      scores: room.scores,
-      reason: "all-voted",
-    })
+    // Same per-deadline lock used by the manual advance path — prevents
+    // dupes when this early-advance races a timer-driven advance or another
+    // simultaneously-arriving final vote.
+    const advanceLockKey = `room:${roomCode}:advance-lock:voting:${room.phaseEndsAt ?? "null"}`
+    const locked = await redis.set(advanceLockKey, "1", { nx: true, ex: 30 })
+    if (locked === "OK") {
+      const attempts =
+        ((await redis.get(`room:${roomCode}:attempts:${room.currentRound}`)) as
+          | Attempt[]
+          | null) ?? []
+      const finals = selectFinalAttempts(attempts, room.picks)
+      room.scores = awardRoundScores(room.scores, finals, votes)
+      room.status = "reveal"
+      room.phaseEndsAt = Date.now() + REVEAL_DURATION_MS
+      await saveRoom(room)
+      await pusher.trigger(`presence-room-${roomCode}`, "reveal-starting", {
+        status: "reveal",
+        round: room.currentRound,
+        phaseEndsAt: room.phaseEndsAt,
+        targetPrompt: room.targetPrompt,
+        scores: room.scores,
+        reason: "all-voted",
+      })
+    }
   }
 
   return NextResponse.json({ vote })
